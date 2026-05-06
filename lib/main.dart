@@ -5,6 +5,8 @@
 // ThemeProvider.
 // ---------------------------------------------------------------------------
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/ble_service.dart';
@@ -52,6 +54,7 @@ class RapsApp extends StatefulWidget {
 }
 
 class _RapsAppState extends State<RapsApp> with WidgetsBindingObserver {
+  Timer? _backgroundDisconnectTimer;
   @override
   void initState() {
     super.initState();
@@ -70,13 +73,25 @@ class _RapsAppState extends State<RapsApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     debugPrint("📱 App Lifecycle State: $state");
 
-    // 🚀 IMPROVEMENT: We ONLY disconnect when the app is fully CLOSED (detached).
-    // Previously, we disconnected on 'paused', which killed the session when
-    // you switched to another app to check logs.
-    if (state == AppLifecycleState.detached) {
-      final uds = Provider.of<UdsController>(context, listen: false);
+    final uds = Provider.of<UdsController>(context, listen: false);
 
-      debugPrint("🔌 App closing: Disconnecting BLE...");
+    if (state == AppLifecycleState.paused) {
+      // ⏳ Start a "Grace Period" timer (e.g., 2 minutes)
+      // This keeps the connection alive if you're just switching apps briefly.
+      debugPrint("⏳ App backgrounded: Starting 2-minute disconnect timer...");
+      _backgroundDisconnectTimer = Timer(const Duration(minutes: 2), () {
+        debugPrint("🔌 Background timeout reached: Auto-disconnecting...");
+        uds.shutdownConnection();
+      });
+    } else if (state == AppLifecycleState.resumed) {
+      // 🛑 Cancel the timer if the user comes back quickly
+      if (_backgroundDisconnectTimer?.isActive ?? false) {
+        debugPrint("✅ User returned: Disconnect timer cancelled.");
+        _backgroundDisconnectTimer?.cancel();
+      }
+    } else if (state == AppLifecycleState.detached) {
+      // 🚨 Final emergency cleanup
+      debugPrint("🔌 App closing: Immediate cleanup.");
       uds.shutdownConnection();
     }
   }

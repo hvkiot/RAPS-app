@@ -198,8 +198,12 @@ class BleController extends ChangeNotifier {
       // 1. Stop scan before connecting (Prevents Status 133)
       await stopScan();
 
+      await bleDevice.device!.disconnect().catchError(
+        (e) => debugPrint("Clear stack: $e"),
+      );
+
       // 2. Short delay for Android Bluetooth stack to stabilize
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 800));
 
       // 3. Perform the connection
       await bleService.connectAndDiscover(bleDevice.device!);
