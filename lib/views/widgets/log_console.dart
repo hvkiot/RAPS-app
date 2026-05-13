@@ -104,71 +104,48 @@ class _ConsoleEntryTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Timestamp
+          // Primary message
           Text(
-            '[${entry.timeString}] ',
+            entry.message,
             style: TextStyle(
               fontFamily: 'monospace',
-              fontSize: 11,
-              color: isDark ? Colors.white24 : Colors.black38,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: entry.color,
             ),
           ),
 
-          // Status icon
-          Padding(
-            padding: const EdgeInsets.only(right: 6, top: 1),
-            child: Icon(entry.icon, size: 14, color: entry.color),
-          ),
-
-          // Message + hex + ASCII
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Primary message
-                Text(
-                  entry.message,
-                  style: TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: entry.color,
-                  ),
+          // Hex data (if present)
+          if (entry.hexData != null && entry.hexData!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: SelectableText(
+                'HEX: ${entry.hexData}',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 16,
+                  color: textColor,
                 ),
-
-                // Hex data (if present)
-                if (entry.hexData != null && entry.hexData!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: SelectableText(
-                      'HEX: ${entry.hexData}',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: textColor,
-                      ),
-                    ),
-                  ),
-
-                // ASCII decoded value (if present)
-                if (entry.asciiValue != null && entry.asciiValue!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: SelectableText(
-                      'VAL: ${entry.asciiValue}',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 11,
-                        color: isDark ? Colors.white38 : Colors.black45,
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
+
+          // ASCII decoded value (if present)
+          if (entry.asciiValue != null && entry.asciiValue!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: SelectableText(
+                'VAL: ${entry.asciiValue}',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 20, // Make the value even larger
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white70 : Colors.black,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -177,33 +154,35 @@ class _ConsoleEntryTile extends StatelessWidget {
 
 // ── Reusable error banner (kept for backward compatibility) ──────────────────
 Widget buildErrorBanner(String message) {
-  return Builder(builder: (context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.3),
+  return Builder(
+    builder: (context) {
+      final theme = Theme.of(context);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: theme.colorScheme.error.withValues(alpha: 0.3),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                color: theme.colorScheme.error,
-                fontWeight: FontWeight.bold,
+        child: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  });
+          ],
+        ),
+      );
+    },
+  );
 }

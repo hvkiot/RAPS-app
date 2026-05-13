@@ -46,7 +46,9 @@ class ReadTab extends StatelessWidget {
                     isExpanded: true,
                     decoration: const InputDecoration(
                       contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     dropdownColor: isDark
                         ? const Color(0xFF2A2A2A)
@@ -97,11 +99,11 @@ class ReadTab extends StatelessWidget {
                       )
                     : const Icon(Icons.download_rounded),
                 label: Text(uds.isLoading ? 'READING…' : 'READ DID'),
-                onPressed: uds.isLoading
+                onPressed: (uds.isLoading || uds.consoleEntries.isNotEmpty)
                     ? null
                     : () {
-                        final hex = UdsController
-                            .readOnlyDids[uds.selectedReadDid];
+                        final hex =
+                            UdsController.readOnlyDids[uds.selectedReadDid];
                         if (hex != null) uds.readDid(hex);
                       },
               ),

@@ -127,6 +127,7 @@ class UdsController extends ChangeNotifier {
   // ── UI state setters ───────────────────────────────────────────────────────
   void setSelectedReadDid(String value) {
     _selectedReadDid = value;
+    clearConsole(); // 🧹 Clear console when selection changes
     notifyListeners();
   }
 
@@ -190,6 +191,7 @@ class UdsController extends ChangeNotifier {
       "id": DateTime.now().millisecondsSinceEpoch,
     };
 
+    /* 
     _addConsoleEntry(
       ConsoleEntry(
         type: ConsoleEntryType.sent,
@@ -197,6 +199,7 @@ class UdsController extends ChangeNotifier {
         hexData: cleanDid,
       ),
     );
+    */
 
     await _ble.send(cmd);
 
