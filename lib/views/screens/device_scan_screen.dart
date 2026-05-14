@@ -18,6 +18,8 @@ class DeviceScanScreen extends StatefulWidget {
 class _DeviceScanScreenState extends State<DeviceScanScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  late BleController _bleController;
+  bool _hasInitialScanStarted = false;
 
   @override
   void initState() {
@@ -27,19 +29,35 @@ class _DeviceScanScreenState extends State<DeviceScanScreen>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    // Auto-start scanning when screen opens IF services are ON
+    _bleController = context.read<BleController>();
+    _bleController.addListener(_onBleStateChanged);
+
+    // Initial check in the next frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final ble = context.read<BleController>();
-      if (ble.isBluetoothOn && ble.isLocationEnabled) {
-        ble.startScan();
-      }
+      _onBleStateChanged();
     });
   }
 
   @override
   void dispose() {
+    _bleController.removeListener(_onBleStateChanged);
     _pulseController.dispose();
     super.dispose();
+  }
+
+  void _onBleStateChanged() {
+    if (!mounted) return;
+
+    final isReady =
+        _bleController.isBluetoothOn &&
+        _bleController.isLocationEnabled &&
+        _bleController.arePermissionsGranted;
+
+    // Auto-start scanning when everything is ready and we haven't auto-scanned yet
+    if (isReady && !_bleController.isScanning && !_hasInitialScanStarted) {
+      _hasInitialScanStarted = true;
+      _bleController.startScan();
+    }
   }
 
   @override
@@ -141,7 +159,7 @@ class _DeviceScanScreenState extends State<DeviceScanScreen>
                       ),
                       child: Image.asset(
                         'assets/Logo.png',
-                        height: 120,
+                        height: 180,
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -153,6 +171,8 @@ class _DeviceScanScreenState extends State<DeviceScanScreen>
                           ? 'No devices found'
                           : '${bleController.scannedDevices.length} device(s) found',
                       style: theme.textTheme.titleMedium?.copyWith(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white54 : Colors.black54,
                       ),
                     ),

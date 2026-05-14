@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 
 /// The kind of log entry – drives icon and colour in the console.
 enum ConsoleEntryType {
-  sent,     // command sent to ECU  → cyan
-  success,  // positive response    → green
-  error,    // negative response    → red
-  info,     // informational        → grey
+  sent, // command sent to ECU  → cyan
+  success, // positive response    → green
+  error, // negative response    → red
+  info, // informational        → grey
 }
 
 class ConsoleEntry {
@@ -31,10 +31,15 @@ class ConsoleEntry {
 
   /// Formatted time string for the console prefix.
   String get timeString {
-    final h = timestamp.hour.toString().padLeft(2, '0');
+    int h = timestamp.hour % 12;
+    if (h == 0) h = 12;
+
     final m = timestamp.minute.toString().padLeft(2, '0');
     final s = timestamp.second.toString().padLeft(2, '0');
-    return '$h:$m:$s';
+
+    final period = timestamp.hour >= 12 ? 'PM' : 'AM';
+
+    return '$h:$m:$s $period';
   }
 
   /// Colour associated with this entry type.

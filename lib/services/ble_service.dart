@@ -110,24 +110,14 @@ class BleService {
   }
 
   Future<void> send(Map<String, dynamic> data) async {
-    // _jsonBuffer.clear(); // 🛑 Clear stale data before sending new command
     if (_characteristic == null) {
       throw Exception("Characteristic not found");
     }
-
     final jsonStr = jsonEncode(data);
     final bytes = utf8.encode(jsonStr);
-
     debugPrint('📤 SENDING: $jsonStr');
     await _characteristic!.write(bytes);
     debugPrint('✅ Sent successfully');
-    await Future.delayed(const Duration(milliseconds: 600));
-    try {
-      debugPrint('🔄 Initiating manual pull...');
-      await _characteristic!.read();
-    } catch (e) {
-      debugPrint('❌ Manual pull failed: $e');
-    }
   }
 
   Future<void> disconnect(BluetoothDevice device) async {

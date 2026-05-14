@@ -99,53 +99,73 @@ class _ConsoleEntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white70 : Colors.black87;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Primary message
-          Text(
-            entry.message,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: entry.color,
-            ),
-          ),
+    // ── DATA FOCUS LOGIC ─────────────────────────────────────────────────────
+    // We prioritize the Decoded Value (ASCII) if available, then Hex.
+    final hasMainData =
+        (entry.asciiValue?.isNotEmpty ?? false) ||
+        (entry.hexData?.isNotEmpty ?? false);
 
-          // Hex data (if present)
-          if (entry.hexData != null && entry.hexData!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: SelectableText(
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasMainData) ...[
+            // The "Actual Data" - Big and Bold
+            SelectableText(
+              entry.asciiValue?.isNotEmpty ?? false
+                  ? entry.asciiValue!
+                  : entry.hexData!,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 36, // Premium Large Size
+                fontWeight: FontWeight.w900,
+                color: entry.type == ConsoleEntryType.error
+                    ? theme.colorScheme.error
+                    : (isDark ? Colors.greenAccent : Colors.green.shade700),
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Sub-info (Hex if ASCII is main, or just the label)
+            if (entry.asciiValue?.isNotEmpty ?? false)
+              Text(
                 'HEX: ${entry.hexData}',
                 style: TextStyle(
                   fontFamily: 'monospace',
-                  fontSize: 16,
-                  color: textColor,
+                  fontSize: 20,
+                  color: Colors.red,
                 ),
               ),
+          ] else ...[
+            // For entries without specific data (Sent, Info, Errors without data)
+            Text(
+              entry.message.toUpperCase(),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: entry.color.withValues(alpha: 0.8),
+                letterSpacing: 1.1,
+              ),
             ),
+          ],
 
-          // ASCII decoded value (if present)
-          if (entry.asciiValue != null && entry.asciiValue!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: SelectableText(
-                'VAL: ${entry.asciiValue}',
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 20, // Make the value even larger
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white70 : Colors.black,
-                ),
-              ),
+          // Small timestamp at the bottom of each entry
+          const SizedBox(height: 4),
+          Text(
+            entry.timeString,
+            style: TextStyle(
+              fontSize: 15,
+              color: textColor.withValues(alpha: 0.5),
             ),
+          ),
         ],
       ),
     );

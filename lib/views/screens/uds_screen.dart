@@ -1,18 +1,13 @@
-// views/screens/uds_screen.dart
-// ---------------------------------------------------------------------------
-// Main UDS dashboard with a BottomNavigationBar (Read · Write · Profile).
-// Uses IndexedStack to keep all three tabs alive so console logs persist
-// when switching between tabs.
+// Main UDS dashboard with a TabBar (Read · Write · Profile).
+// Uses TabBarView to keep all three tabs alive and switch between them.
 // ---------------------------------------------------------------------------
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uds/config/app_config.dart';
 import 'package:uds/controllers/uds_controller.dart';
 import 'package:uds/views/screens/device_scan_screen.dart';
 import 'package:uds/views/widgets/read_tab.dart';
 import 'package:uds/views/widgets/write_tab.dart';
-import 'package:uds/views/widgets/profile_tab.dart';
 
 class UdsScreen extends StatefulWidget {
   const UdsScreen({super.key});
@@ -21,16 +16,27 @@ class UdsScreen extends StatefulWidget {
   State<UdsScreen> createState() => _UdsScreenState();
 }
 
-class _UdsScreenState extends State<UdsScreen> {
-  int _currentIndex = 0;
+class _UdsScreenState extends State<UdsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   late UdsController _udsController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _udsController = context.read<UdsController>();
+
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        _udsController.clearConsole();
+        _udsController
+            .resetWriteStatus(); // 🔄 Reset write button on tab switch
+      }
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _udsController = context.read<UdsController>();
-      _udsController.addListener(_onConnectionChanged); // <--- Attach listener
+      _udsController.addListener(_onConnectionChanged);
 
       // 🚀 Trigger initial status fetch if already connected
       if (_udsController.isConnected) {
@@ -57,7 +63,8 @@ class _UdsScreenState extends State<UdsScreen> {
 
   @override
   void dispose() {
-    _udsController.removeListener(_onConnectionChanged); // <--- Stop listening
+    _tabController.dispose();
+    _udsController.removeListener(_onConnectionChanged);
     super.dispose();
   }
 
@@ -66,35 +73,97 @@ class _UdsScreenState extends State<UdsScreen> {
     final uds = context.watch<UdsController>();
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('RAPS SERVICE TOOL'),
-            const Spacer(),
-            // 🟢 ECU STATUS INDICATOR
-            Text(
-              uds.isEcuOnline ? " ECU ONLINE" : " ECU OFFLINE",
-              style: TextStyle(
-                color: uds.isEcuOnline
-                    ? AppConfig.emerald500
-                    : AppConfig.rose500,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(160),
+        child: AppBar(
+          elevation: 0,
+          leading: IconButton(
+            tooltip: 'Profile',
+            padding: const EdgeInsets.only(bottom: 0),
+            onPressed: () => Navigator.pushNamed(context, '/profile'),
+            icon: Icon(Icons.account_circle_rounded, size: 32),
+          ),
+          centerTitle: true,
+          title: const Text(
+            'RAPS SERVICE TOOL',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 22,
+              letterSpacing: 2.5,
             ),
-            const SizedBox(width: 8),
-            // Pulsing connection status dot
-            _ConnectionStatusDot(isConnected: uds.isConnected),
-            const SizedBox(width: 8),
-            Text(
-              uds.isConnected ? 'Online' : 'Offline',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: uds.isConnected ? const Color(0xFF10B981) : Colors.grey,
-              ),
+          ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(80),
+            child: Column(
+              children: [
+                // 🟢 ECU STATUS INDICATOR
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'ECU STATUS: ',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: Colors.white60,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        Text(
+                          uds.isEcuOnline ? 'ONLINE' : 'OFFLINE',
+                          style: TextStyle(
+                            color: uds.isEcuOnline
+                                ? theme.colorScheme.secondary
+                                : theme.colorScheme.error,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _ConnectionStatusDot(isConnected: uds.isEcuOnline),
+                      ],
+                    ),
+                  ),
+                ),
+                TabBar(
+                  controller: _tabController,
+                  indicatorWeight: 4,
+                  indicatorColor: Colors.white,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: Colors.white,
+                  dividerColor: Colors.white24,
+                  unselectedLabelColor: Colors.white.withValues(alpha: 0.4),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: 1.2,
+                  ),
+                  tabs: const [
+                    Tab(
+                      text: 'READ',
+                      icon: Icon(Icons.download_rounded, size: 24),
+                    ),
+                    Tab(
+                      text: 'WRITE',
+                      icon: Icon(Icons.upload_rounded, size: 24),
+                    ),
+                  ],
+                  enableFeedback: null,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
       body: SafeArea(
@@ -120,38 +189,16 @@ class _UdsScreenState extends State<UdsScreen> {
                 },
               ),
 
-            // ── Tab body (IndexedStack keeps all tabs alive) ─────────────
+            // ── Tab body (TabBarView replaces IndexedStack) ─────────────
             Expanded(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: const [ReadTab(), WriteTab(), ProfileTab()],
+              child: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
+                controller: _tabController,
+                children: const [ReadTab(), WriteTab()],
               ),
             ),
           ],
         ),
-      ),
-
-      // ── Bottom navigation bar ─────────────────────────────────────────
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.download_rounded),
-            activeIcon: Icon(Icons.download_rounded),
-            label: 'Read',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.upload_rounded),
-            activeIcon: Icon(Icons.upload_rounded),
-            label: 'Write',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
       ),
     );
   }

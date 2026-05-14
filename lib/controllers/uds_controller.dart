@@ -22,6 +22,7 @@ class UdsController extends ChangeNotifier {
   bool _isInitialStatusFetched = false;
   int? _lastProcessedResponseId; // 🛡️ Deduplication tracking
   StreamSubscription<BluetoothConnectionState>? _bleStateSubscription;
+  String? _lastWrittenDid;
   // ── RAPS DID Inventory (unchanged) ─────────────────────────────────────────
   static const Map<String, String> readOnlyDids = {
     "ECU Hardware Number": "F191",
@@ -59,8 +60,6 @@ class UdsController extends ChangeNotifier {
     "Axle 1 Angle": "2210",
     "Axle 5 Angle": "2211",
     "Axle 6 Angle": "2212",
-    "Axle 5 Control": "2213",
-    "Axle 6 Control": "2214",
     "Axle 5 Min Current Dir 1": "2215",
     "Axle 5 Max Current Dir 1": "2216",
     "Axle 5 Min Current Dir 2": "2217",
@@ -105,12 +104,42 @@ class UdsController extends ChangeNotifier {
   bool get isConnected => _ble.isConnected;
   bool get isEcuOnline => _isEcuOnline;
   bool get writeSuccess => _writeSuccess;
+  String? get lastWrittenDid => _lastWrittenDid;
 
   // ── UI state getters ───────────────────────────────────────────────────────
   String get selectedReadDid => _selectedReadDid;
   String get selectedWriteDid => _selectedWriteDid;
   String get writeInputText => _writeInputText;
   List<ConsoleEntry> get consoleEntries => List.unmodifiable(_consoleEntries);
+
+  bool get isRangeValid {
+    // 1. If we aren't in Decimal mode, validation isn't required here.
+    if (currentInputMode != 'DEC') return true;
+
+    // 2. Identify the current DID
+    final hexDid = writableDids[selectedWriteDid] ?? '';
+
+    // 3. Define the DIDs that require the 100-2500mA limit
+    const currentLimitDIDs = [
+      "2215",
+      "2216",
+      "2217",
+      "2218",
+      "2219",
+      "221A",
+      "221B",
+      "221C",
+    ];
+
+    // 4. If the selected DID is NOT a current limit, it's valid (for Angles 2210-2212)
+    if (!currentLimitDIDs.contains(hexDid)) return true;
+
+    // 5. Apply the 100-2500 check only for the Current DIDs
+    final val = int.tryParse(_writeInputText);
+    if (val == null) return false;
+
+    return val >= 100 && val <= 2500;
+  }
 
   // ── Status Fetch ───────────────────────────────────────────────────────────
   Future<void> fetchStatus() async {
@@ -151,11 +180,13 @@ class UdsController extends ChangeNotifier {
       _writeInputText = '';
     }
 
+    clearConsole(); // 🧹 Clear console when selection changes
     notifyListeners();
   }
 
   void setWriteInputText(String value) {
     _writeInputText = value;
+    _lastWrittenDid = null; // 🔓 Re-enable button if data changes
     notifyListeners();
   }
 
@@ -176,6 +207,18 @@ class UdsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetWriteStatus() {
+    _writeSuccess = false;
+    _error = null;
+    _lastWrittenDid = null;
+    notifyListeners();
+  }
+
+  bool isCalibrationDID(String did) {
+    final clean = did.toUpperCase().replaceAll('0X', '');
+    return clean == '2210' || clean == '2211' || clean == '2212';
+  }
+
   // ── READ DID ───────────────────────────────────────────────────────────────
   Future<void> readDid(String did) async {
     _isLoading = true;
@@ -190,16 +233,6 @@ class UdsController extends ChangeNotifier {
       "did": cleanDid,
       "id": DateTime.now().millisecondsSinceEpoch,
     };
-
-    /* 
-    _addConsoleEntry(
-      ConsoleEntry(
-        type: ConsoleEntryType.sent,
-        message: 'READ $cleanDid',
-        hexData: cleanDid,
-      ),
-    );
-    */
 
     await _ble.send(cmd);
 
@@ -221,44 +254,49 @@ class UdsController extends ChangeNotifier {
 
   // ── WRITE DID (UPDATED FOR DEC MODE) ───────────────────────────────────────
   Future<void> writeDid(String did, String value) async {
-    _isLoading = true;
-    _writeSuccess = false;
-    _error = null;
-    notifyListeners();
-
     String cleanDid = did.replaceAll(' ', '').toUpperCase();
     if (!cleanDid.startsWith('0x')) {
       cleanDid = '0x$cleanDid';
     }
 
-    int requiredLength = getRequiredLength(
-      cleanDid,
-    ); // Ensure your getRequiredLength is defined below this!
+    _writeSuccess = false;
+    _isLoading = true;
+    _error = null;
+    _lastWrittenDid = cleanDid; // 🔒 Disable button immediately
+    notifyListeners();
 
-    // 🛑 DEC TO HEX CONVERSION MAGIC 🛑
+    int requiredLength = getRequiredLength(cleanDid);
+
+    // ── DEC TO HEX CONVERSION MAGIC (Terminal Match Version) ──────────────────
     String dataToFormat = value;
     bool formattingAsText = (currentInputMode == 'TEXT');
 
     if (currentInputMode == 'DEC') {
-      if (value.isEmpty) {
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
-      try {
-        int numericValue = int.parse(value);
-        int requiredHexChars = requiredLength > 0
-            ? requiredLength * 2
-            : 4; // Default to 4 chars (2 bytes) if unknown
-        dataToFormat = numericValue
+      if (value.isEmpty) return;
+
+      if (cleanDid.contains('2210') ||
+          cleanDid.contains('2211') ||
+          cleanDid.contains('2212')) {
+        double val = double.parse(value);
+        int scaled = (val * 10).toInt();
+        String hex = (scaled & 0xFFFF)
             .toRadixString(16)
-            .padLeft(requiredHexChars, '0');
-        formattingAsText = false; // Send the converted Hex to the formatter
-      } catch (e) {
-        _error = "Invalid Decimal Number";
-        _isLoading = false;
-        notifyListeners();
-        return;
+            .padLeft(4, '0')
+            .toUpperCase();
+
+        dataToFormat = hex;
+        formattingAsText = false;
+
+        requiredLength = 2;
+
+        debugPrint("📐 TML SPEC FINAL: $val -> $hex");
+      }
+      // Handle Current DIDs (0x2215 - 0x221C)
+      else if (int.parse(cleanDid.substring(2), radix: 16) >= 0x2215) {
+        int mA = int.parse(value);
+        // 16-bit int = 2 bytes
+        dataToFormat = mA.toRadixString(16).padLeft(4, '0').toUpperCase();
+        formattingAsText = false;
       }
     }
 
@@ -276,17 +314,6 @@ class UdsController extends ChangeNotifier {
       "id": DateTime.now().millisecondsSinceEpoch,
     };
 
-    _addConsoleEntry(
-      ConsoleEntry(
-        type: ConsoleEntryType.sent,
-        message: 'WRITE $cleanDid',
-        hexData: formattedData,
-        asciiValue: currentInputMode == 'TEXT'
-            ? value
-            : null, // Only show ascii if it was actual text
-      ),
-    );
-
     await _ble.send(cmd);
 
     _timeoutTimer?.cancel();
@@ -300,6 +327,7 @@ class UdsController extends ChangeNotifier {
             message: 'Write timeout – no response from ECU',
           ),
         );
+        _lastWrittenDid = null; // 🔓 Re-enable button on failure
         notifyListeners();
       }
     });
@@ -392,6 +420,7 @@ class UdsController extends ChangeNotifier {
           );
         } else {
           _error = _lastResponse?.error ?? "ECU Negative Response";
+          _lastWrittenDid = null; // 🔓 Re-enable button on error
           _addConsoleEntry(
             ConsoleEntry(
               type: ConsoleEntryType.error,

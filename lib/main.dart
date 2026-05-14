@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uds/views/screens/profile_screen.dart';
 import 'services/ble_service.dart';
 import 'controllers/ble_controller.dart';
 import 'controllers/uds_controller.dart';
@@ -115,6 +116,7 @@ class _RapsAppState extends State<RapsApp> with WidgetsBindingObserver {
       routes: {
         '/scan': (context) => const DeviceScanScreen(),
         '/uds': (context) => const UdsScreen(),
+        '/profile': (context) => const ProfileScreen(),
       },
     );
   }

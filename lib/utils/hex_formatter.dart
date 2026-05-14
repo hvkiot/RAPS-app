@@ -52,10 +52,12 @@ int getRequiredLength(String did) {
     case "F192":
       return 4; // 4 bytes
 
-    case "220F":
     case "2210":
     case "2211":
     case "2212":
+      return 5; // Updated from 2 to 5 to match the ASCII buffer
+
+    case "220F":
     case "2213":
     case "2214":
     case "2215":
