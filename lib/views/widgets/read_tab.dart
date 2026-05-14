@@ -51,7 +51,7 @@ class ReadTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: uds.selectedReadDid,
+                    initialValue: uds.selectedReadDid,
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down_rounded),
                     style: TextStyle(
