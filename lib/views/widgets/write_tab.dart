@@ -355,12 +355,6 @@ class _WriteTabState extends State<WriteTab> {
                         !isAngleValid)
                     ? null // This disables the button
                     : () {
-                        print(
-                          (isCurrentLimitDid && // Only show error for Current DIDs
-                              uds.currentInputMode == 'DEC' &&
-                              _valueController.text.isNotEmpty &&
-                              !uds.isRangeValid),
-                        );
                         FocusManager.instance.primaryFocus?.unfocus();
                         // This executes the write
                         final hexDid =

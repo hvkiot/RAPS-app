@@ -32,6 +32,7 @@ class _UdsScreenState extends State<UdsScreen>
         _udsController.clearConsole();
         _udsController
             .resetWriteStatus(); // 🔄 Reset write button on tab switch
+        FocusManager.instance.primaryFocus?.unfocus();
       }
     });
 
